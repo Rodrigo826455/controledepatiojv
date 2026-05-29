@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Oficina - Firebase Cloud</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: #e2e8f0;
+            padding: 20px;
+            margin: 0;
+        }
+        .main-layout {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .card {
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border-top: 5px solid #1e293b;
+            margin-bottom: 25px;
+        }
+        h2, h3 {
+            color: #1e293b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #cbd5e1;
+            padding-bottom: 10px;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        @media (max-width: 600px) {
+            .form-grid { grid-template-columns: 1fr; }
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            color: #475569;
+            margin-bottom: 6px;
+            font-size: 0.85em;
+            text-transform: uppercase;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 2px;
+            background-color: #f8fafc;
+            font-size: 16px;
+            color: #334155;
+        }
+        input[type="text"]:not([readonly]):focus {
+            outline: none;
+            border-color: #3b82f6;
+            background-color: #ffffff;
+        }
+        input[readonly] {
+            background-color: #f1f5f9;
+            color: #64748b;
+        }
+        .camera-btn {
+            display: block;
+            width: 100%;
+            background-color: #1e293b;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            border: none;
+            border-radius: 2px;
+            margin-bottom: 15px;
+        }
+        #cameraInput { display: none; }
+        #preview {
+            width: 100%;
+            max-height: 150px;
+            object-fit: contain;
+            background-color: #f1f5f9;
+            border: 1px dashed #cbd5e1;
+            margin-bottom: 15px;
+            display: none;
+        }
+        .submit-btn {
+            width: 100%;
+            background-color: #22c55e;
+            color: white;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            text-transform: uppercase;
+            margin-top: 10px;
+            transition: background-color 0.3s;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th {
+            background-color: #1e293b;
+            color: white;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            padding: 12px;
+            text-align: left;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #cbd5e1;
+            font-size: 0.95em;
+            vertical-align: middle;
+        }
+        tr:nth-child(even) {
+            background-color: #f1f5f9;
+        }
+        .status-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        .linha-finalizada {
+            text-decoration: line-through;
+            color: #94a3b8;
+            background-color: #f8fafc !important;
+        }
+        .acoes-container {
+            display: flex;
+            gap: 5px;
+        }
+        .btn-acao {
+            padding: 8px;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+            font-size: 0.8em;
+            text-transform: uppercase;
+        }
+        .btn-editar { background-color: #3b82f6; }
+        .btn-apagar { background-color: #ef4444; }
+    </style>
+</head>
+<body>
+
+<div class="main-layout">
+    
+    <div class="card">
+        <h2 id="tituloFormulario">Nova Entrada de Veículo</h2>
+        
+        <label for="cameraInput" class="camera-btn">📷 Escanear Placa do Veículo</label>
+        <input type="file" id="cameraInput" accept="image/*" capture="environment">
+        
+        <img id="preview" alt="Preview">
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Data/Hora de Entrada</label>
+                <input type="text" id="data_entrada" placeholder="Gerado automaticamente" readonly>
+            </div>
+
+            <div class="form-group">
+                <label>Placa</label>
+                <input type="text" id="placa" placeholder="Aguardando leitura da foto..." readonly>
+            </div>
+
+            <div class="form-group">
+                <label>Empresa</label>
+                <input type="text" id="empresa" placeholder="Nome da empresa">
+            </div>
+
+            <div class="form-group">
+                <label>Defeito</label>
+                <input type="text" id="defeito" placeholder="Descrição do problema">
+            </div>
+
+            <div class="form-group">
+                <label>Número da OS</label>
+                <input type="text" id="numero_os" placeholder="Nº da Ordem de Serviço">
+            </div>
+        </div>
+
+        <button class="submit-btn" id="btnSalvar" onclick="salvarRegistro()">Salvar na Nuvem</button>
+        <button class="submit-btn" id="btnCancelarEdicao" style="display: none; background-color: #64748b; margin-top: 5px;" onclick="cancelarEdicao()">Cancelar Edição</button>
+    </div>
+
+    <div class="card">
+        <h3>Histórico em Tempo Real (Nuvem)</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Placa</th>
+                        <th>Empresa</th>
+                        <th>Defeito</th>
+                        <th>OS</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="corpoTabela">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========= CONFIGURAÇÃO DAS APIS =========
+    const PLATE_RECOGNIZER_TOKEN = "d974a40fab3a0cffd14c040787fef48b43627515"; 
+
+    // Cole aqui o objeto firebaseConfig que copiou no Passo 1:
+    const firebaseConfig = {
+        apiKey: "AIzaSyCdBeHknq2aFLDsxI_xSqX5arynjy7796c",
+  authDomain: "entradadeveiculo.firebaseapp.com",
+  projectId: "entradadeveiculo",
+  storageBucket: "entradadeveiculo.firebasestorage.app",
+  messagingSenderId: "642790342900",
+  appId: "1:642790342900:web:e20f497403aae39f875ea1",
+  measurementId: "G-R2LN1923MV"
+    };
+
+    // Inicializar o Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Elementos da Interface
+    const cameraInput = document.getElementById('cameraInput');
+    const preview = document.getElementById('preview');
+    const campoPlaca = document.getElementById('placa');
+    const campoData = document.getElementById('data_entrada');
+    const btnSalvar = document.getElementById('btnSalvar');
+    const btnCancelarEdicao = document.getElementById('btnCancelarEdicao');
+    
+    let idEmEdicao = null; // Guarda o ID do documento Firestore se estiver editando
+
+    // Escuta ativa em Tempo Real: qualquer alteração no banco atualiza a tabela na hora
+    db.collection('registros').orderBy('timestamp', 'desc').onSnapshot((snapshot) => {
+        const registros = [];
+        snapshot.forEach(doc => {
+            registros.push({ docId: doc.id, ...doc.data() });
+        });
+        atualizarTabelaInterface(registros);
+    });
+
+    // Captura de Imagem e Leitura de Placa
+    cameraInput.addEventListener('change', async function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = 'block';
+        campoPlaca.value = "PROCESSANDO IMAGEM...";
+
+        const agora = new Date();
+        campoData.value = agora.toLocaleDateString('pt-BR') + ' ' + agora.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+
+        let formData = new FormData();
+        formData.append('upload', file);
+        formData.append('regions', 'br'); 
+
+        try {
+            const response = await fetch('https://api.platerecognizer.com/v1/plate-reader/', {
+                method: 'POST',
+                headers: { 'Authorization': `Token ${PLATE_RECOGNIZER_TOKEN}` },
+                body: formData
+            });
+            const data = await response.json();
+            if (data.results && data.results.length > 0) {
+                campoPlaca.value = data.results[0].plate.toUpperCase();
+            } else {
+                campoPlaca.value = "";
+                alert("Placa não identificada na foto. Digite manualmente.");
+                campoPlaca.removeAttribute('readonly');
+            }
+        } catch (error) {
+            console.error(error);
+            campoPlaca.value = "";
+            alert("Erro ao conectar com o serviço de leitura de placas.");
+            campoPlaca.removeAttribute('readonly');
+        }
+    });
+
+    // Gravar ou Atualizar Dados no Firebase Firestore
+    function salvarRegistro() {
+        if (!campoPlaca.value || campoPlaca.value === "PROCESSANDO IMAGEM...") {
+            alert("Por favor, capture ou digite a placa do veículo antes de salvar.");
+            return;
+        }
+
+        const dadosFormulario = {
+            placa: campoPlaca.value,
+            empresa: document.getElementById('empresa').value,
+            defeito: document.getElementById('defeito').value,
+            os: document.getElementById('numero_os').value
+        };
+
+        if (idEmEdicao !== null) {
+            // Modo Edição: Atualiza o documento existente na nuvem
+            db.collection('registros').doc(idEmEdicao).update(dadosFormulario)
+            .then(() => cancelarEdicao())
+            .catch(err => alert("Erro ao atualizar dados: " + err));
+        } else {
+            // Modo Novo Registro: Cria uma nova entrada com data/hora e status pendente
+            db.collection('registros').add({
+                ...dadosFormulario,
+                data: campoData.value,
+                finalizado: false,
+                timestamp: Date.now() // Usado para ordenação cronológica precisa
+            })
+            .then(() => cancelarEdicao())
+            .catch(err => alert("Erro ao salvar dados: " + err));
+        }
+    }
+
+    // Puxa os dados da tabela para o formulário superior para edição
+    function editarRegistro(docId, placa, data, empresa, defeito, os) {
+        campoData.value = data;
+        campoPlaca.value = placa;
+        document.getElementById('empresa').value = empresa;
+        document.getElementById('defeito').value = defeito;
+        document.getElementById('numero_os').value = os;
+        
+        campoPlaca.removeAttribute('readonly');
+        
+        idEmEdicao = docId;
+        document.getElementById('tituloFormulario').innerText = "Editando Registro na Nuvem";
+        btnSalvar.innerText = "Atualizar Registro";
+        btnSalvar.style.backgroundColor = "#3b82f6"; 
+        btnCancelarEdicao.style.display = "block";
+        
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelarEdicao() {
+        idEmEdicao = null;
+        campoPlaca.value = "";
+        campoData.value = "";
+        document.getElementById('empresa').value = "";
+        document.getElementById('defeito').value = "";
+        document.getElementById('numero_os').value = "";
+        preview.style.display = 'none';
+        campoPlaca.setAttribute('readonly', true);
+        
+        document.getElementById('tituloFormulario').innerText = "Nova Entrada de Veículo";
+        btnSalvar.innerText = "Salvar na Nuvem";
+        btnSalvar.style.backgroundColor = "#22c55e"; 
+        btnCancelarEdicao.style.display = "none";
+    }
+
+    // Apaga o registro diretamente no banco em nuvem
+    function apagarRegistro(docId) {
+        if (confirm("Tem certeza que deseja apagar permanentemente este registro da nuvem?")) {
+            db.collection('registros').doc(docId).delete()
+            .catch(err => alert("Erro ao apagar: " + err));
+            if (idEmEdicao === docId) cancelarEdicao();
+        }
+    }
+
+    // Inverte o status de conclusão no Firestore
+    function alternarStatus(docId, statusAtual) {
+        db.collection('registros').doc(docId).update({
+            finalizado: !statusAtual
+        });
+    }
+
+    // Renderiza a interface gráfica com base nos dados recebidos do Firebase
+    function atualizarTabelaInterface(historico) {
+        const corpoTabela = document.getElementById('corpoTabela');
+        corpoTabela.innerHTML = "";
+
+        if (historico.length === 0) {
+            corpoTabela.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#64748b;">Nenhum veículo registrado na nuvem.</td></tr>`;
+            return;
+        }
+
+        historico.forEach(item => {
+            const tr = document.createElement('tr');
+            if (item.finalizado) tr.className = 'linha-finalizada';
+
+            // Escapa aspas para evitar quebras no HTML gerado pelos botões
+            const empresaEscapada = (item.empresa || '-').replace(/'/g, "\\'");
+            const defeitoEscapado = (item.defeito || '-').replace(/'/g, "\\'");
+            const osEscapada = (item.os || '-').replace(/'/g, "\\'");
+
+            tr.innerHTML = `
+                <td><strong>${item.placa}</strong><br><small style="color:#64748b">${item.data}</small></td>
+                <td>${item.empresa || '-'}</td>
+                <td>${item.defeito || '-'}</td>
+                <td>${item.os || '-'}</td>
+                <td style="text-align: center;">
+                    <input type="checkbox" class="status-checkbox" ${item.finalizado ? 'checked' : ''} onchange="alternarStatus('${item.docId}', ${item.finalizado})">
+                </td>
+                <td>
+                    <div class="acoes-container">
+                        <button class="btn-acao btn-editar" onclick="editarRegistro('${item.docId}', '${item.placa}', '${item.data}', '${empresaEscapada}', '${defeitoEscapado}', '${osEscapada}')" title="Editar">✏️</button>
+                        <button class="btn-acao btn-apagar" onclick="apagarRegistro('${item.docId}')" title="Apagar">🗑️</button>
+                    </div>
+                </td>
+            `;
+            corpoTabela.appendChild(tr);
+        });
+    }
+</script>
+
+</body>
+</html>
